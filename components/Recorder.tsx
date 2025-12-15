@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Square, Video, Loader2 } from 'lucide-react';
 import { MediaType } from '../types.ts';
 
@@ -16,47 +16,56 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const mimeTypeRef = useRef<string>('');
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  // We remove videoRef and use a callback ref pattern for more reliable mounting
+
+  // Cleanup function for stream tracks
+  const cleanupStream = (mediaStream: MediaStream | null) => {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  // Ensure cleanup happens on unmount
+  useEffect(() => {
+    return () => {
+      // Only cleanup if we are NOT processing (processing needs to keep data, but stream can die)
+      // Actually, once recording stops, we kill stream anyway. 
+      // This is just a failsafe for navigating away.
+      if (stream) {
+        cleanupStream(stream);
+      }
+    };
+  }, []); // Empty dependency array is fine here for unmount only
 
   const getSupportedMimeType = (type: MediaType) => {
-    const videoTypes = [
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4'
-    ];
-    const audioTypes = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg'
-    ];
-
+    const videoTypes = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+    const audioTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
     const types = type === MediaType.VIDEO ? videoTypes : audioTypes;
     return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
   };
 
   const startRecording = async (type: MediaType) => {
     try {
+      // 1. Get User Media
+      // Relaxed constraints for better compatibility
       const constraints = type === MediaType.VIDEO 
         ? { video: true, audio: true } 
         : { audio: true, video: false };
         
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
-      setMediaType(type);
-
-      if (type === MediaType.VIDEO && videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = mediaStream;
+      
+      // 2. Setup Recorder
+      const mimeType = getSupportedMimeType(type);
+      const options = mimeType ? { mimeType } : undefined;
+      
+      let recorder;
+      try {
+        recorder = new MediaRecorder(mediaStream, options);
+      } catch (e) {
+        console.warn("MediaRecorder with options failed, trying default", e);
+        recorder = new MediaRecorder(mediaStream);
       }
 
-      const mimeType = getSupportedMimeType(type);
-      mimeTypeRef.current = mimeType;
-      console.log("Using MIME type:", mimeType);
-
-      const options = mimeType ? { mimeType } : undefined;
-      const recorder = new MediaRecorder(mediaStream, options);
-      
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
 
@@ -65,19 +74,23 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
       };
 
       recorder.onstop = () => {
-        // Create blob with the detected mime type
-        const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
-        onRecordingComplete(blob, type, mimeTypeRef.current);
+        const blob = new Blob(chunksRef.current, { type: mimeType || recorder.mimeType });
+        onRecordingComplete(blob, type, mimeType || recorder.mimeType);
         
-        // Cleanup
-        mediaStream.getTracks().forEach(track => track.stop());
+        cleanupStream(mediaStream);
         setStream(null);
         setMediaType(null);
       };
 
-      recorder.start();
+      // 3. Update State
+      setStream(mediaStream);
+      setMediaType(type);
       setRecording(true);
-      setTimeLeft(30); // 30 second limit
+      setTimeLeft(30);
+
+      // 4. Start Recording
+      recorder.start(1000); // Record in 1s chunks for safety
+
     } catch (err) {
       console.error("Error accessing media devices:", err);
       alert("Could not access microphone or camera. Please grant permissions.");
@@ -85,12 +98,13 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setRecording(false);
     }
   };
 
+  // Timer logic
   useEffect(() => {
     let interval: any;
     if (recording && timeLeft > 0) {
@@ -103,6 +117,15 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
     }
     return () => clearInterval(interval);
   }, [recording, timeLeft]);
+
+  // Callback ref to handle video element mounting reliably
+  const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
+    if (node !== null && stream) {
+      node.srcObject = stream;
+      // Explicitly play to ensure autoplay works on all browsers
+      node.play().catch(e => console.error("Video play failed", e));
+    }
+  }, [stream]);
 
   if (isProcessing) {
     return (
@@ -162,7 +185,13 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
         <div className="flex flex-col items-center animate-fade-in-up">
           <div className="relative w-full max-w-md aspect-[4/3] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl ring-8 ring-white/30">
              {mediaType === MediaType.VIDEO ? (
-                <video ref={videoPreviewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                <video 
+                  ref={videoRefCallback}
+                  autoPlay 
+                  muted 
+                  playsInline 
+                  className="w-full h-full object-cover transform scale-x-[-1]" 
+                />
              ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900 to-slate-900">
                    <div className="relative">
@@ -174,8 +203,7 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
                 </div>
              )}
              
-             {/* Overlay Controls */}
-             <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between">
+             <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between z-20">
                 <div className="flex items-center space-x-2">
                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                    <span className="text-white font-mono font-bold">{30 - timeLeft}s / 30s</span>
@@ -188,8 +216,7 @@ export const Recorder: React.FC<RecorderProps> = ({ onRecordingComplete, isProce
                 </button>
              </div>
              
-             {/* Progress Bar */}
-             <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-teal-400 transition-all duration-1000 ease-linear" style={{ width: `${(progress / 100) * 100}%` }}></div>
+             <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-teal-400 transition-all duration-1000 ease-linear z-20" style={{ width: `${(progress / 100) * 100}%` }}></div>
           </div>
           
           <p className="mt-8 text-slate-600 font-medium bg-white/50 px-4 py-2 rounded-full backdrop-blur-sm">

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
-import { AnalysisResult } from "../types.ts";
+import { AnalysisResult } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
