@@ -1,7 +1,14 @@
 import { GoogleGenAI, Type, Schema, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get AI instance safely
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 const analysisSchema: Schema = {
   type: Type.OBJECT,
@@ -35,6 +42,7 @@ const analysisSchema: Schema = {
 
 export const analyzeSession = async (mediaBase64: string, mimeType: string): Promise<AnalysisResult> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: {
@@ -98,6 +106,7 @@ export const analyzeSession = async (mediaBase64: string, mimeType: string): Pro
 
 export const generateAffirmationAudio = async (text: string): Promise<ArrayBuffer> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: {
