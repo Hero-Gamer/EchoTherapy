@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Video, Loader2 } from 'lucide-react';
-import { MediaType } from '../types';
+import { MediaType } from '../types.ts';
 
 interface RecorderProps {
   onRecordingComplete: (blob: Blob, type: MediaType, mimeType: string) => void;

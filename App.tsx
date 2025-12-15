@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Recorder } from './components/Recorder';
-import { MoodFlower } from './components/MoodFlower';
-import { analyzeSession, generateAffirmationAudio } from './services/geminiService';
-import { AnalysisResult, MediaType, ProcessingState } from './types';
+import { Recorder } from './components/Recorder.tsx';
+import { MoodFlower } from './components/MoodFlower.tsx';
+import { analyzeSession, generateAffirmationAudio } from './services/geminiService.ts';
+import { AnalysisResult, MediaType, ProcessingState } from './types.ts';
 import { RotateCcw, Volume2, VolumeX, Download, AlertTriangle, PlayCircle, PauseCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import confetti from 'canvas-confetti';

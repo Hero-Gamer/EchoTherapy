@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlowerConfig } from '../types';
+import { FlowerConfig } from '../types.ts';
 
 interface MoodFlowerProps {
   config: FlowerConfig;
