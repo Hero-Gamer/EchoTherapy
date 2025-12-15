@@ -73,7 +73,6 @@
         animation: breathe 6s ease-in-out infinite;
       }
 
-      /* Missing Animation Added Here */
       @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(30px); }
         to { opacity: 1; transform: translateY(0); }
@@ -98,18 +97,19 @@
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react/": "https://esm.sh/react@19.0.0/",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom/": "https://esm.sh/react-dom@19.0.0/",
+    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
+    "lucide-react": "https://esm.sh/lucide-react@0.469.0",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
-    "canvas-confetti": "https://esm.sh/canvas-confetti@1.6.0"
+    "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.3"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
